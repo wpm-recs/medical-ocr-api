@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical OCR API</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  .subtitle { color: #888; font-size: 14px; margin-bottom: 24px; }
+
+  .card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 24px; margin-bottom: 20px; }
+
+  /* drop zone */
+  .drop-zone {
+    border: 2px dashed #ccc; border-radius: 8px; padding: 48px 24px;
+    text-align: center; transition: border-color .2s, background .2s; cursor: pointer;
+  }
+  .drop-zone.dragover { border-color: #4a90d9; background: #f0f7ff; }
+  .drop-zone.has-file { border-color: #4caf50; background: #f1f8f4; }
+  .drop-zone p { color: #999; font-size: 14px; }
+  .drop-zone .file-name { color: #333; font-weight: 600; margin-top: 8px; word-break: break-all; }
+  .drop-zone .hint { font-size: 12px; color: #bbb; margin-top: 4px; }
+
+  /* buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 24px; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 500; cursor: pointer; transition: background .2s;
+  }
+  .btn-primary { background: #4a90d9; color: #fff; width: 100%; justify-content: center; margin-top: 16px; }
+  .btn-primary:hover { background: #3a7bc8; }
+  .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
+
+  /* spinner */
+  .spinner { display: none; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  .spinner.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* status bar */
+  .status { display: none; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+  .status.error { display: block; background: #fff0f0; color: #c0392b; border: 1px solid #f5c6cb; }
+  .status.success { display: block; background: #f0fff4; color: #27ae60; border: 1px solid #c3e6cb; }
+
+  /* result */
+  .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .result-header h2 { font-size: 16px; }
+  .meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .meta-item { font-size: 12px; color: #888; }
+  .meta-item span { color: #555; font-weight: 500; }
+
+  .json-block { background: #1e1e1e; color: #d4d4d4; border-radius: 8px; padding: 20px; overflow-x: auto; }
+  .json-block pre { font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  .json-block .key { color: #9cdcfe; }
+  .json-block .string { color: #ce9178; }
+  .json-block .number { color: #b5cea8; }
+  .json-block .boolean { color: #569cd6; }
+  .json-block .null { color: #808080; }
+
+  .copy-btn { font-size: 12px; padding: 4px 12px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+  .copy-btn:hover { background: #f0f0f0; }
+
+  /* responsive */
+  @media (max-width: 600px) { .container { padding: 16px 8px; } .card { padding: 16px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1> Medical OCR API</h1>
+  <p class="subtitle">Upload a medical document — referral letter, medical certificate, or receipt — and get structured JSON.</p>
+
+  <div class="card">
+    <div id="dropZone" class="drop-zone">
+      <p> Drag & drop a file here, or click to browse</p>
+      <p class="file-name" id="fileName"></p>
+      <p class="hint">Supported: PDF, JPEG, PNG, TIFF (max 20 MB)</p>
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.tiff" hidden>
+    </div>
+
+    <button class="btn btn-primary" id="submitBtn" disabled>
+      <span class="spinner" id="spinner"></span>
+      <span id="btnText">Upload & Analyze</span>
+    </button>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <div class="result-header">
+      <h2> Result</h2>
+      <button class="copy-btn" id="copyBtn"> Copy JSON</button>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="json-block"><pre id="jsonOutput"></pre></div>
+  </div>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileName = document.getElementById('fileName');
+const submitBtn = document.getElementById('submitBtn');
+const spinner = document.getElementById('spinner');
+const btnText = document.getElementById('btnText');
+const statusEl = document.getElementById('status');
+const resultCard = document.getElementById('resultCard');
+const metaEl = document.getElementById('meta');
+const jsonOutput = document.getElementById('jsonOutput');
+const copyBtn = document.getElementById('copyBtn');
+
+let selectedFile = null;
+
+// ── file selection ──
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+
+function setFile(file) {
+  selectedFile = file;
+  fileName.textContent = file.name;
+  dropZone.classList.add('has-file');
+  submitBtn.disabled = false;
+  statusEl.className = 'status';
+  statusEl.textContent = '';
+}
+
+// ── submit ──
+submitBtn.addEventListener('click', upload);
+
+async function upload() {
+  if (!selectedFile) return;
+
+  submitBtn.disabled = true;
+  spinner.classList.add('active');
+  btnText.textContent = 'Processing...';
+  statusEl.className = 'status';
+  statusEl.textContent = '';
+  resultCard.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+
+  try {
+    const res = await fetch('/ocr', { method: 'POST', body: formData });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    renderResult(data);
+  } catch (err) {
+    statusEl.className = 'status error';
+    statusEl.textContent = '✕ ' + err.message;
+  } finally {
+    submitBtn.disabled = false;
+    spinner.classList.remove('active');
+    btnText.textContent = 'Upload & Analyze';
+  }
+}
+
+// ── render ──
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+    let cls = 'number';
+    if (/^"/.test(m)) cls = /:$/.test(m) ? 'key' : 'string';
+    else if (/true|false/.test(m)) cls = 'boolean';
+    else if (/null/.test(m)) cls = 'null';
+    return `<span class="${cls}">${m}</span>`;
+  });
+}
+
+function renderResult(data) {
+  statusEl.className = 'status success';
+  statusEl.textContent = '✓ ' + (data.message || 'Processing completed.');
+
+  const r = data.result || {};
+  metaEl.innerHTML = [
+    `Document: <span>${r.document_type || '-'}</span>`,
+    `Total: <span>${r.total_time ?? '-'}s</span>`,
+    r.ocr_time != null ? `OCR: <span>${r.ocr_time}s</span>` : '',
+    r.classification_time != null ? `Classify: <span>${r.classification_time}s</span>` : '',
+    r.extraction_time != null ? `Extract: <span>${r.extraction_time}s</span>` : '',
+  ].filter(Boolean).map(m => `<div class="meta-item">${m}</div>`).join('');
+
+  const formatted = JSON.stringify(r.finalJson ?? data, null, 2);
+  jsonOutput.innerHTML = syntaxHighlight(formatted);
+  resultCard.style.display = 'block';
+}
+
+// ── copy ──
+copyBtn.addEventListener('click', () => {
+  const text = jsonOutput.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    copyBtn.textContent = '✓ Copied!';
+    setTimeout(() => copyBtn.textContent = 'Copy JSON', 1500);
+  });
+});
+</script>
+</body>
+</html>

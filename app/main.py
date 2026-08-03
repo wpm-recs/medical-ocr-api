@@ -3,7 +3,8 @@
 import logging
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import config
 from app.api.ocr import router as ocr_router, UnsupportedDocumentError, FileValidationError
@@ -26,6 +27,14 @@ app = FastAPI(
 _setup_logging()
 
 app.include_router(ocr_router)
+
+# ── Mount static files (Web UI) ──
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/static/index.html")
 
 
 @app.exception_handler(UnsupportedDocumentError)

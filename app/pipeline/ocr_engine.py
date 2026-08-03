@@ -22,7 +22,7 @@ class OcrEngine:
         try:
             from paddleocr import PaddleOCR
             self._engine = PaddleOCR(
-                use_angle_cls=True, lang="en", use_gpu=False, show_log=False
+                use_angle_cls=True, lang="en", use_gpu=False
             )
         except ImportError:
             raise RuntimeError(
