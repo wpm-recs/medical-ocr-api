@@ -12,82 +12,30 @@ from app.config import config
 
 logger = logging.getLogger(__name__)
 
-# Maps LLM-returned fields to the canonical schema field names
-_FIELD_ALIASES: Dict[str, str] = {
-    # medical_certificate aliases
-    "name": "claimant_name",
-    "nric": "claimant_address",
-    "nric_fin_passport": "claimant_address",
-    "address": "claimant_address",
-    "dob": "claimant_date_of_birth",
-    "date_of_birth": "claimant_date_of_birth",
-    "birth_date": "claimant_date_of_birth",
-    "diagnosis": "diagnosis_name",
-    "discharge_date": "discharge_date_time",
-    "discharged": "discharge_date_time",
-    "admission_date": "submission_date_time",
-    "admitted_on": "submission_date_time",
-    "admitted": "submission_date_time",
-    "submission_date": "submission_date_time",
-    "mc_date": "date_of_mc",
-    "date": "date_of_mc",
-    "issued_date": "date_of_mc",
-    "days": "mc_days",
-    "duration_days": "mc_days",
-    "period_days": "mc_days",
-    "clinic": "provider_name",
-    "clinic_name": "provider_name",
-    "hospital": "provider_name",
-    "hospital_clinic": "provider_name",
-    "icd": "icd_code",
-    "icd10": "icd_code",
-    # receipt aliases
-    "patient_name": "claimant_name",
-    "patient": "claimant_name",
-    "pay_by": "claimant_name",
-    "total": "total_amount",
-    "total_amount_paid": "total_amount",
-    "total_charges": "total_amount",
-    "grand_total": "total_amount",
-    "amount_due": "total_amount",
-    "tax": "tax_amount",
-    "gst": "tax_amount",
-    "vat": "tax_amount",
-    "merchant": "provider_name",
-    "store": "provider_name",
-    # referral_letter aliases
-    "patient": "claimant_name",
-    "doctor": "provider_name",
-    "referring_doctor": "provider_name",
-    "signature": "signature_presence",
-    "signed": "signature_presence",
-}
-
-# Canonical fields per document type
-_CANONICAL_FIELDS: Dict[str, set] = {
-    "referral_letter": {
-        "claimant_name", "provider_name", "signature_presence",
-        "total_amount_paid", "total_approved_amount", "total_requested_amount",
-    },
-    "medical_certificate": {
-        "claimant_name", "claimant_address", "claimant_date_of_birth",
-        "diagnosis_name", "discharge_date_time", "icd_code",
-        "provider_name", "submission_date_time", "date_of_mc", "mc_days",
-    },
-    "receipt": {
-        "claimant_name", "claimant_address", "claimant_date_of_birth",
-        "provider_name", "tax_amount", "total_amount",
-    },
-}
-
 SYSTEM_PROMPT = """You are a medical document parser. Classify the OCR text as referral_letter, medical_certificate, receipt, or unknown. Extract fields.
-Return ONLY valid JSON:
-{"document_type":"<type>","fields":{...}}
-Fields per type:
-referral_letter: claimant_name, provider_name, signature_presence(bool), total_amount_paid(int), total_approved_amount(int), total_requested_amount(int)
-medical_certificate: claimant_name, claimant_address, claimant_date_of_birth, diagnosis_name, discharge_date_time, icd_code, provider_name, submission_date_time, date_of_mc, mc_days(int)
-receipt: claimant_name, claimant_address, claimant_date_of_birth, provider_name, tax_amount(int), total_amount(int)
-Rules: missing=null. Amounts to int (rm $/commas/decimals). Dates to DD/MM/YYYY. Fix common OCR errors in strings (e.g. "01-0]" → "01-01", "Slngapore" → "Singapore", "0rchard" → "Orchard")."""
+
+Return ONLY valid JSON. You MUST include EVERY field listed below for the document type, in the exact order shown. Use null for missing values.
+
+TEMPLATES (copy-paste the correct one and fill):
+
+referral_letter:
+{"document_type":"referral_letter","fields":{"claimant_name":"...","provider_name":"...","signature_presence":false,"total_amount_paid":null,"total_approved_amount":null,"total_requested_amount":null}}
+
+medical_certificate:
+{"document_type":"medical_certificate","fields":{"claimant_name":"...","claimant_address":"...","claimant_date_of_birth":"...","diagnosis_name":"...","discharge_date_time":"...","icd_code":"...","provider_name":"...","submission_date_time":"...","date_of_mc":"...","mc_days":null}}
+
+receipt:
+{"document_type":"receipt","fields":{"claimant_name":"...","claimant_address":"...","claimant_date_of_birth":"...","provider_name":"...","tax_amount":null,"total_amount":null}}
+
+RULES:
+- submission_date_time = HOSPITAL ADMISSION DATE (e.g. "admitted on"). Do NOT confuse with date_of_mc (MC issue date) or discharge_date_time. null if no admission date.
+- discharge_date_time = HOSPITAL DISCHARGE DATE. null if no discharge date.
+- date_of_mc = MC ISSUE / CONSULTATION DATE. null if no MC date.
+- provider_name: extract the clinic/hospital/medical center name from the letterhead or header. Must NOT contain "Fullerton Health". If the name contains "@" (e.g. "Healthway Screening @ Centrepoint"), preserve it — OCR often misreads "@" as "o", "0", "a", or "at", so fix those: "Healthway Screening 0 Centrepoint" → "Healthway Screening @ Centrepoint", "Healthway Screening at Centrepoint" → "Healthway Screening @ Centrepoint".
+- Amounts: output as integer. Remove currency symbols ($/USD/SGD/etc.) and thousand-separator commas. Truncate the decimal part (e.g. "49.28" → 49, "$1,234.56" → 1234). null if absent.
+- Dates: DD/MM/YYYY format.
+- Booleans: true or false.
+- Fix OCR errors: "JOHN DOE D." → "JOHN DOE", "#01-0]" → "#01-01", "#01-0" → "#01-00", "0rchard" → "Orchard", "Slngapore" → "Singapore"."""
 
 
 class LlmExtractor:
@@ -161,12 +109,15 @@ class LlmExtractor:
 
         result = self._parse_json(raw)
         doc_type = result.get("document_type", "unknown")
-        fields = self._normalize_fields(doc_type, result.get("fields", {}))
+        fields = result.get("fields", {})
 
         valid_types = {"referral_letter", "medical_certificate", "receipt", "unknown"}
         if doc_type not in valid_types:
             doc_type = "unknown"
             fields = {}
+
+        # Only coerce values — LLM already outputs complete schema with nulls
+        fields = {k: self._coerce_value(k, v) for k, v in fields.items()}
 
         return {"document_type": doc_type, "fields": fields}
 
@@ -195,31 +146,6 @@ class LlmExtractor:
 
         logger.error(f"LLM returned invalid JSON: {raw[:500]}")
         raise RuntimeError("LLM returned invalid JSON")
-
-    def _normalize_fields(
-        self, doc_type: str, fields: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Normalize LLM-returned fields to canonical schema."""
-        canonical = _CANONICAL_FIELDS.get(doc_type)
-        if not canonical:
-            return fields
-
-        normalized: Dict[str, Any] = {}
-        for key in canonical:
-            if key in fields:
-                normalized[key] = self._coerce_value(key, fields[key])
-            elif key in _FIELD_ALIASES:
-                # Already aliased
-                normalized[key] = self._coerce_value(key, fields[key])
-            else:
-                normalized[key] = None
-
-        # Map aliased fields
-        for src, dst in _FIELD_ALIASES.items():
-            if dst in canonical and src in fields and dst not in normalized:
-                normalized[dst] = self._coerce_value(dst, fields[src])
-
-        return normalized
 
     @staticmethod
     def _coerce_value(field: str, value: Any) -> Any:
@@ -257,9 +183,22 @@ class LlmExtractor:
                 return value.lower() in ("true", "yes", "1")
             return None
 
+        # Name field: strip trailing garbage like "D.", "P.", "T."
+        if field == "claimant_name":
+            if isinstance(value, str):
+                value = re.sub(r"\s+[A-Z]\.\s*$", "", value.strip())
+            return str(value).strip() if value else None
+
+        # Address field: fix Singapore unit number OCR errors
+        if field == "claimant_address":
+            if isinstance(value, str):
+                # "#01-0]" → "#01-01"  (OCR confuses "1" with "]")
+                value = re.sub(r"#(\d{1,2})-(\d)\]", r"#\g<1>-\g<2>1", value)
+                # "#01-0" with truncated last digit → "#01-00"
+                value = re.sub(r"#(\d{1,2})-(\d)(?!\d)", r"#\g<1>-\g<2>\g<2>", value)
+            return str(value).strip() if value else None
+
         # String fields
         if isinstance(value, (int, float)):
             return str(value)
         return str(value) if value else None
-
-        return {"document_type": doc_type, "fields": fields}
