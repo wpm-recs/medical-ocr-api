@@ -4,6 +4,10 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 @dataclass
 class Config:
@@ -21,6 +25,15 @@ class Config:
     )
     llm_model: str = field(
         default_factory=lambda: os.getenv("LLM_MODEL", "gpt-4o")
+    )
+    llm_base_url: Optional[str] = field(
+        default_factory=lambda: os.getenv("LLM_BASE_URL")
+    )
+    llm_max_input_chars: int = field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_INPUT_CHARS", "8000"))
+    )
+    llm_max_tokens: int = field(
+        default_factory=lambda: int(os.getenv("LLM_MAX_TOKENS", "1024"))
     )
     cache_enabled: bool = field(
         default_factory=lambda: os.getenv("CACHE_ENABLED", "false").lower() == "true"

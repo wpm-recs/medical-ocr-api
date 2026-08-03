@@ -56,6 +56,9 @@ class OcrEngine:
         )
 
     def _recognize_paddleocr(self, img: Image.Image) -> List[OcrBlock]:
+        # PaddleOCR requires RGB (3-channel) images
+        if img.mode != "RGB":
+            img = img.convert("RGB")
         result = self._engine.ocr(np.array(img), cls=True)
         blocks: list[OcrBlock] = []
         if result and result[0]:

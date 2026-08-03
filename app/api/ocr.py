@@ -12,8 +12,7 @@ from app.models.response import OcrResponse, OcrResult, DocumentType
 from app.pipeline.preprocessor import DocumentPreprocessor
 from app.pipeline.ocr_engine import OcrEngine
 from app.pipeline.normalizer import TextNormalizer
-from app.classification.classifier import DocumentClassifier
-from app.extraction.factory import get_extractor
+from app.extraction.llm_extractor import LlmExtractor
 from app.extraction.signature import SignatureDetector
 
 logger = logging.getLogger(__name__)
@@ -62,22 +61,18 @@ def process_document(file: UploadFile) -> OcrResponse:
     normalized_text = TextNormalizer.normalize(ocr_result.full_text)
     ocr_time = round(time.time() - t_ocr_start, 4)
 
-    # ---- classify ----
-    t_cls_start = time.time()
-    classifier = DocumentClassifier()
-    doc_type, confidence = classifier.classify(normalized_text)
-    classification_time = round(time.time() - t_cls_start, 4)
+    # ---- LLM: classify + extract in one call ----
+    t_llm_start = time.time()
+    extractor = LlmExtractor()
+    llm_result = extractor.extract(normalized_text)
+    doc_type = llm_result["document_type"]
+    fields = llm_result["fields"]
+    llm_time = round(time.time() - t_llm_start, 4)
 
     if doc_type == "unknown":
         raise UnsupportedDocumentError("unsupported_document_type")
 
-    # ---- extract ----
-    t_ext_start = time.time()
-    extractor = get_extractor(doc_type)
-    fields = extractor.extract(normalized_text, ocr_result.blocks)
-    extraction_time = round(time.time() - t_ext_start, 4)
-
-    # ---- signature (referral_letter only) ----
+    # ---- signature (referral_letter only, image-based) ----
     if doc_type == "referral_letter":
         sig_detector = SignatureDetector()
         fields["signature_presence"] = sig_detector.detect(
@@ -92,8 +87,8 @@ def process_document(file: UploadFile) -> OcrResponse:
             document_type=DocumentType(doc_type),
             total_time=total_time,
             ocr_time=ocr_time,
-            classification_time=classification_time,
-            extraction_time=extraction_time,
+            classification_time=llm_time,
+            extraction_time=llm_time,
             finalJson=fields,
         ),
     )

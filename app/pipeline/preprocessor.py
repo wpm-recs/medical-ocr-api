@@ -53,12 +53,11 @@ class DocumentPreprocessor:
         if len(img_array.shape) == 3 and img_array.shape[2] == 3:
             gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
         else:
-            gray = img_array
+            gray = img_array.copy()
 
-        binary = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-        denoised = cv2.fastNlMeansDenoising(binary)
+        # PaddleOCR has its own preprocessing pipeline;
+        # only apply mild denoising and deskewing — don't binarize.
+        denoised = cv2.fastNlMeansDenoising(gray)
         deskewed = self._correct_skew(denoised)
         return Image.fromarray(deskewed)
 

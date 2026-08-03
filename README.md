@@ -31,7 +31,12 @@ A microservice that performs OCR, automatically detects document types (Referral
 git clone <repo-url>
 cd medical-ocr-api
 
-# 2. Create & activate virtual environment
+# 2. Install system dependencies (Linux)
+sudo apt-get install -y poppler-utils   # Ubuntu / Debian
+# sudo dnf install -y poppler-utils     # Fedora / RHEL
+# sudo pacman -S poppler                # Arch Linux
+
+# 3. Create & activate virtual environment
 python -m venv .venv
 
 # Windows
@@ -39,13 +44,13 @@ python -m venv .venv
 # Linux / macOS
 source .venv/bin/activate
 
-# 3. Install dependencies
+# 4. Install dependencies
 pip install -r requirements.txt
 
-# 4. (Optional) Configure environment
+# 5. (Optional) Configure environment
 cp .env.example .env
 
-# 5. Start the server
+# 6. Start the server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
