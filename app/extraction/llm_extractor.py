@@ -87,7 +87,7 @@ Fields per type:
 referral_letter: claimant_name, provider_name, signature_presence(bool), total_amount_paid(int), total_approved_amount(int), total_requested_amount(int)
 medical_certificate: claimant_name, claimant_address, claimant_date_of_birth, diagnosis_name, discharge_date_time, icd_code, provider_name, submission_date_time, date_of_mc, mc_days(int)
 receipt: claimant_name, claimant_address, claimant_date_of_birth, provider_name, tax_amount(int), total_amount(int)
-Rules: missing=null. Amounts to int (rm $/commas/decimals). Dates to DD/MM/YYYY."""
+Rules: missing=null. Amounts to int (rm $/commas/decimals). Dates to DD/MM/YYYY. Fix common OCR errors in strings (e.g. "01-0]" → "01-01", "Slngapore" → "Singapore", "0rchard" → "Orchard")."""
 
 
 class LlmExtractor:
