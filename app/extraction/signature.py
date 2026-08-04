@@ -332,4 +332,3 @@ class SignatureDetector:
             return False
         except Exception:
             return False
-            return False

@@ -8,10 +8,11 @@ A microservice that performs OCR, automatically detects document types (Referral
 
 1. [Quick Start](#quick-start)
 2. [API Reference](#api-reference)
-3. [Sample cURL Commands](#sample-curl-commands)
-4. [How to Extend](#how-to-extend)
-5. [Project Structure](#project-structure)
-6. [Testing](#testing)
+3. [Web UI](#web-ui)
+4. [Sample cURL Commands](#sample-curl-commands)
+5. [How to Extend](#how-to-extend)
+6. [Project Structure](#project-structure)
+7. [Testing](#testing)
 
 ---
 
@@ -20,9 +21,8 @@ A microservice that performs OCR, automatically detects document types (Referral
 ### Prerequisites
 
 - **Python**: 3.10+
-- **System dependencies**:
-  - Poppler (for `pdf2image`) — [Windows binaries](http://blog.alivate.com.au/poppler-windows/)
-  - Tesseract OCR (optional, only if using `OCR_ENGINE=tesseract`)
+- **LLM API key**: Required for document classification and field extraction. Supports any OpenAI-compatible API (GPT, DeepSeek, etc.). Set `LLM_API_KEY` in `.env`.
+- **System dependencies**: Poppler (for `pdf2image`) — install via `apt-get install poppler-utils` (Linux) or [Windows binaries](http://blog.alivate.com.au/poppler-windows/).
 
 ### Install & Run
 
@@ -47,8 +47,9 @@ source .venv/bin/activate
 # 4. Install dependencies
 pip install -r requirements.txt
 
-# 5. (Optional) Configure environment
+# 5. Configure environment (REQUIRED: set LLM_API_KEY)
 cp .env.example .env
+# Edit .env and set LLM_API_KEY, LLM_MODEL, LLM_BASE_URL
 
 # 6. Start the server
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -131,6 +132,28 @@ Missing / un-parsable fields are returned as `null`.
 
 ---
 
+## Web UI
+
+The service includes a built-in web interface at the root path (`/`), providing a visual way to upload documents and inspect extraction results without using the command line.
+
+### Access
+
+Open http://localhost:8000 in your browser after starting the server.
+
+### Features
+
+- **Drag & drop** or click to upload PDF / JPEG / PNG documents
+- **Live preview** of the uploaded file name
+- **One-click processing** — sends the file to `POST /ocr` and displays results
+- **Formatted JSON output** with document type, timing breakdown, and all extracted fields
+- **Error display** for unsupported file types or processing failures
+
+### Screenshot
+
+![Web UI Screenshot](Screenshot/WebUI.png)
+
+---
+
 ## Sample cURL Commands
 
 ```bash
@@ -158,7 +181,7 @@ curl http://localhost:8000/health
 
 ## How to Extend
 
-Adding a new document type requires only three steps:
+The service uses a single LLM prompt (`SYSTEM_PROMPT` in `app/extraction/llm_extractor.py`) to handle both classification and field extraction. Adding a new document type requires two steps:
 
 ### Step 1 — Add the type to the enum
 
@@ -171,45 +194,17 @@ class DocumentType(str, Enum):
     PRESCRIPTION = "prescription"   # <-- new
 ```
 
-### Step 2 — Add classification patterns
+### Step 2 — Add the JSON template to the LLM prompt
 
 ```python
-# app/classification/classifier.py → TYPE_PATTERNS
-"prescription": {
-    "keywords": ["prescription", "Rx", "dispense", "dosage"],
-    "required_fields": [
-        r"medication|drug|medicine",
-        r"dosage|dose",
-    ],
-    "exclude_keywords": ["receipt", "invoice"]
-}
+# app/extraction/llm_extractor.py → SYSTEM_PROMPT
+# Add a new template block for the document type:
+
+prescription:
+{"document_type":"prescription","fields":{"medication_name":"...","dosage":"...","prescribing_doctor":"..."}}
 ```
 
-### Step 3 — Implement a new extractor and register it
-
-```python
-# app/extraction/prescription.py
-from .base import BaseExtractor
-
-class PrescriptionExtractor(BaseExtractor):
-    def extract(self, ocr_text, ocr_blocks):
-        return {
-            "medication_name": self._extract_medication(ocr_text),
-            "dosage": self._extract_dosage(ocr_text),
-            "prescribing_doctor": self._extract_name(ocr_text),
-        }
-
-# app/extraction/factory.py — register
-EXTRACTOR_MAP["prescription"] = PrescriptionExtractor
-```
-
-### Switch OCR engine
-
-```bash
-# Environment variable
-OCR_ENGINE=tesseract   # switch to Tesseract
-OCR_ENGINE=paddleocr   # switch to PaddleOCR (default)
-```
+The LLM will automatically classify the document into the new type and return the specified fields. No separate classifier or extractor class is needed.
 
 ---
 
@@ -225,24 +220,21 @@ medical-ocr-api/
 │   ├── api/
 │   │   └── ocr.py                 # POST /ocr + GET /health endpoints
 │   ├── pipeline/
-│   │   ├── preprocessor.py        # PDF → image, deskew, denoise
+│   │   ├── preprocessor.py        # PDF → image, embedded text extraction
 │   │   ├── ocr_engine.py          # PaddleOCR / Tesseract abstraction
+│   │   ├── ocr_types.py           # OcrBlock / OcrResult dataclasses
 │   │   └── normalizer.py          # Text cleaning & normalization
-│   ├── classification/
-│   │   └── classifier.py          # Keyword + regex rule engine
-│   └── extraction/
-│       ├── base.py                # BaseExtractor (name/date/amount/address)
-│       ├── referral_letter.py     # Referral letter extractor
-│       ├── medical_certificate.py # Medical certificate extractor
-│       ├── receipt.py             # Receipt extractor
-│       ├── signature.py           # Handwritten signature detector
-│       └── factory.py             # Extractor factory
+│   ├── extraction/
+│   │   ├── llm_extractor.py       # LLM-based classification + extraction
+│   │   └── signature.py           # Handwritten signature detector (OpenCV)
+│   ├── classification/            # (reserved for future non-LLM classifier)
+│   └── static/
+│       └── index.html             # Web UI
 ├── tests/
 │   ├── conftest.py
-│   ├── test_classifier.py         # 5 classifier tests
-│   ├── test_extractors.py         # 10 extractor tests
-│   └── test_api.py                # 5 API endpoint tests
+│   └── test_api.py                # API endpoint tests
 ├── Example/                       # Sample documents
+├── Screenshot/                    # Web UI screenshot
 ├── doc/
 │   └── 开发文档.md                 # Full design document (Chinese)
 ├── Dockerfile
@@ -259,9 +251,7 @@ medical-ocr-api/
 # Run all tests
 pytest tests/ -v
 
-# Specific test files
-pytest tests/test_classifier.py -v
-pytest tests/test_extractors.py -v
+# Specific test file
 pytest tests/test_api.py -v
 
 # With coverage
