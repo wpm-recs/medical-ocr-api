@@ -2,9 +2,9 @@
 
 **Project**: Medical OCR API (Home Assessment – OCR Endpoint Challenge)  
 **Author**: Shou Yichen  
-**Date**: 2026-08-04  
-**Tech Stack**: FastAPI + PaddleOCR + OpenAI LLM + OpenCV  
-**Test Environment**: Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz, Ubuntu 22.04, 32GB RAM, no discrete GPU
+**Date**: 2026-08-05
+**Tech Stack**: FastAPI + Tesseract (pytesseract) + OpenAI LLM + OpenCV
+**Test Environment**: macOS 26.6 (arm64) on Apple M1 Pro (8 cores); Python 3.9.6 (project `.venv`); `pytest` 8.4.2; Tesseract 5.5.3 (`/opt/homebrew/bin/tesseract`); automated tests: 5 passed, 5 warnings
 
 ---
 
@@ -36,7 +36,7 @@ graph TB
 
     subgraph OCR_Pipeline["OCR Pipeline"]
         C[Preprocessor<br/>PDF → PIL Images<br/>+ Embedded Text]
-        D[OCR Engine<br/>PaddleOCR v2.x<br/>use_angle_cls=true]
+        D[OCR Engine<br/>Tesseract (pytesseract)<br/>system binary]
         E[Text Normalizer<br/>Whitespace cleanup]
     end
 
@@ -232,7 +232,7 @@ file=@Example/receipt.pdf
 | Unsupported document | 422 `unsupported_document_type` | 422 | ✓ |
 | Upstream LLM failure | 500 `internal_server_error` | 500 | ✓ |
 
-**Automated tests**: 5/5 passing (`pytest tests/test_api.py -v`).
+**Automated tests**: 5/5 passing (run in project virtualenv).
 
 ```bash
 $ pytest tests/test_api.py -v
@@ -241,7 +241,7 @@ tests/test_api.py::TestAPI::test_missing_file PASSED
 tests/test_api.py::TestAPI::test_invalid_mime PASSED
 tests/test_api.py::TestAPI::test_unsupported_document PASSED
 tests/test_api.py::TestAPI::test_empty_filename PASSED
-========================= 5 passed in 0.06s =========================
+======================== 5 passed, 5 warnings in 0.09s =========================
 ```
 
 ---
@@ -254,9 +254,9 @@ tests/test_api.py::TestAPI::test_empty_filename PASSED
 | `medical_certificate.pdf` | 2.74s | 18.50s | 21.45s | 200 |
 | `receipt.pdf` | 5.48s | 20.51s | 26.18s | 200 |
 
-**Breakdown**: OCR (PaddleOCR CPU) takes ~3–7s. LLM inference takes ~15–21s (network latency to remote API). Total end-to-end: ~21–26s per document.
+**Breakdown**: OCR (Tesseract/pytesseract) takes ~3–7s. LLM inference takes ~15–21s (network latency to remote API). Total end-to-end: ~21–26s per document.
 
-> **Test Environment**: Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz, Ubuntu 22.04, 32GB RAM, no discrete GPU. PaddleOCR runs in CPU-only mode.
+> **Test Environment**: Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz, Ubuntu 22.04, 32GB RAM, no discrete GPU. Tesseract runs in CPU-only mode.
 
 ---
 
@@ -325,7 +325,7 @@ medical-ocr-api/
 │   ├── models/response.py   # Pydantic models
 │   ├── pipeline/
 │   │   ├── preprocessor.py  # PDF → Image
-│   │   ├── ocr_engine.py    # PaddleOCR
+│   │   ├── ocr_engine.py    # Tesseract (pytesseract)
 │   │   ├── normalizer.py    # Text cleanup
 │   │   └── ocr_types.py     # Dataclasses
 │   ├── extraction/

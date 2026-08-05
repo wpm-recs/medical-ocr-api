@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      - OCR_ENGINE=paddleocr
+      - OCR_ENGINE=tesseract
       - LOG_LEVEL=INFO
     volumes:
       - ./Example:/app/Example:ro

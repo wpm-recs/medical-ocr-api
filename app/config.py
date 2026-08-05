@@ -12,7 +12,7 @@ load_dotenv()
 @dataclass
 class Config:
     ocr_engine: str = field(
-        default_factory=lambda: os.getenv("OCR_ENGINE", "paddleocr")
+        default_factory=lambda: os.getenv("OCR_ENGINE", "tesseract")
     )
     max_file_size: int = field(
         default_factory=lambda: int(os.getenv("MAX_FILE_SIZE", "20971520"))

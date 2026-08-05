@@ -20,7 +20,7 @@ A microservice that performs OCR, automatically detects document types (Referral
 
 ### Prerequisites
 
-- **Python**: 3.10+
+- **Python**: 3.9+ (project tests were run under Python 3.9.6 in the repository `.venv`)
 - **LLM API key**: Required for document classification and field extraction. Supports any OpenAI-compatible API (GPT, DeepSeek, etc.). Set `LLM_API_KEY` in `.env`.
 - **System dependencies**: Poppler (for `pdf2image`) — install via `apt-get install poppler-utils` (Linux) or [Windows binaries](http://blog.alivate.com.au/poppler-windows/).
 
@@ -127,7 +127,7 @@ Missing / un-parsable fields are returned as `null`.
 ### `GET /health`
 
 ```json
-{"status":"ok","ocr_engine":"paddleocr","version":"1.0.0"}
+{"status":"ok","ocr_engine":"tesseract","version":"1.0.0"}
 ```
 
 ---
@@ -221,7 +221,7 @@ medical-ocr-api/
 │   │   └── ocr.py                 # POST /ocr + GET /health endpoints
 │   ├── pipeline/
 │   │   ├── preprocessor.py        # PDF → image, embedded text extraction
-│   │   ├── ocr_engine.py          # PaddleOCR abstraction
+│   │   ├── ocr_engine.py          # Tesseract (pytesseract) abstraction
 │   │   ├── ocr_types.py           # OcrBlock / OcrResult dataclasses
 │   │   └── normalizer.py          # Text cleaning & normalization
 │   ├── extraction/
@@ -256,6 +256,27 @@ pytest tests/test_api.py -v
 
 # With coverage
 pytest tests/ --cov=app --cov-report=html
+```
+
+Example test run (project `.venv`):
+
+```bash
+$ pytest tests/test_api.py -v
+tests/test_api.py::TestAPI::test_health_check PASSED
+tests/test_api.py::TestAPI::test_missing_file PASSED
+tests/test_api.py::TestAPI::test_invalid_mime PASSED
+tests/test_api.py::TestAPI::test_unsupported_document PASSED
+tests/test_api.py::TestAPI::test_empty_filename PASSED
+======================== 5 passed, 5 warnings in 0.09s =========================
+
+Verification environment (used when the repository tests were run):
+
+- OS: macOS 26.6 (arm64) on Apple M1 Pro (8 cores)
+- Python: 3.9.6 (project `.venv`)
+- pytest: 8.4.2
+- Tesseract: 5.5.3 (`/opt/homebrew/bin/tesseract`)
+
+If your environment differs (for example Linux CI or different Python), follow the Quick Start prerequisites above.
 ```
 
 ---
