@@ -9,10 +9,12 @@ A microservice that performs OCR, automatically detects document types (Referral
 1. [Quick Start](#quick-start)
 2. [API Reference](#api-reference)
 3. [Web UI](#web-ui)
-4. [Sample cURL Commands](#sample-curl-commands)
-5. [How to Extend](#how-to-extend)
-6. [Project Structure](#project-structure)
-7. [Testing](#testing)
+4. [Online Demo](#online-demo)
+5. [Docker Quick Start](#docker-quick-start-recommended)
+6. [Source Code Deployment](#source-code-deployment)
+7. [How to Extend](#how-to-extend)
+8. [Project Structure](#project-structure)
+9. [Testing](#testing)
 
 ---
 
@@ -85,11 +87,24 @@ API docs are auto-generated at:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
-### Docker
+### Docker Quick Start (Recommended)
+
+The recommended way to start the project is with Docker:
 
 ```bash
+# 1. Create the .env file and configure required settings
+cp .env.example .env
+# Edit .env and set LLM_API_KEY, LLM_MODEL, LLM_BASE_URL
+
+# 2. Build & start the container
 docker-compose up -d --build
 ```
+
+After the container starts, open:
+
+- Web UI: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ---
 
@@ -166,7 +181,21 @@ The service includes a built-in web interface at the root path (`/`), providing 
 
 Open http://localhost:8000 in your browser after starting the server.
 
-### Online Demo
+### Features
+
+- **Drag & drop** or click to upload PDF / JPEG / PNG documents
+- **Live preview** of the uploaded file name
+- **One-click processing** — sends the file to `POST /ocr` and displays results
+- **Formatted JSON output** with document type, timing breakdown, and all extracted fields
+- **Error display** for unsupported file types or processing failures
+
+### Screenshot
+
+![Web UI Screenshot](Screenshot/WebUI.png)
+
+---
+
+## Online Demo
 
 You can also try the deployed demo directly here:
 
@@ -190,21 +219,46 @@ curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.az
   -F "file=@Example/receipt.pdf"
 ```
 
-### Features
-
-- **Drag & drop** or click to upload PDF / JPEG / PNG documents
-- **Live preview** of the uploaded file name
-- **One-click processing** — sends the file to `POST /ocr` and displays results
-- **Formatted JSON output** with document type, timing breakdown, and all extracted fields
-- **Error display** for unsupported file types or processing failures
-
-### Screenshot
-
-![Web UI Screenshot](Screenshot/WebUI.png)
-
 ---
 
-## Sample cURL Commands
+## Source Code Deployment
+
+If you prefer to run the service from source code instead of Docker, use the following steps.
+
+```bash
+# 1. Clone the project
+git clone <repo-url>
+cd medical-ocr-api
+
+# 2. Install system dependencies (Linux)
+sudo apt-get install -y poppler-utils   # Ubuntu / Debian
+# sudo dnf install -y poppler-utils     # Fedora / RHEL
+# sudo pacman -S poppler                # Arch Linux
+
+# 3. Create & activate virtual environment
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+# Linux / macOS
+source .venv/bin/activate
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Configure environment (REQUIRED: set LLM_API_KEY)
+cp .env.example .env
+# Edit .env and set LLM_API_KEY, LLM_MODEL, LLM_BASE_URL
+
+# 6. Start the server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+API docs are auto-generated at:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+### Sample cURL Commands
 
 ```bash
 # Referral Letter
