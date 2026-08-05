@@ -23,6 +23,32 @@ A microservice that performs OCR, automatically detects document types (Referral
 - **Python**: 3.9+ (project tests were run under Python 3.9.6 in the repository `.venv`)
 - **LLM API key**: Required for document classification and field extraction. Supports any OpenAI-compatible API (GPT, DeepSeek, etc.). Set `LLM_API_KEY` in `.env`.
 - **System dependencies**: Poppler (for `pdf2image`) — install via `apt-get install poppler-utils` (Linux) or [Windows binaries](http://blog.alivate.com.au/poppler-windows/).
+Additionally this project requires the Tesseract OCR binary (the Python package `pytesseract` is a wrapper).
+
+Install Tesseract on common platforms:
+
+- macOS (Homebrew):
+
+```bash
+brew install tesseract
+```
+
+- Ubuntu / Debian:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+```
+
+- Windows:
+
+Download and install the appropriate Windows installer from the Tesseract project or use Chocolatey:
+
+```powershell
+choco install tesseract
+```
+
+After installing the Tesseract binary, ensure it's on your `PATH` so `pytesseract` can find it. On macOS/Linux the Homebrew/apt packages typically handle this automatically.
 
 ### Install & Run
 
@@ -139,6 +165,30 @@ The service includes a built-in web interface at the root path (`/`), providing 
 ### Access
 
 Open http://localhost:8000 in your browser after starting the server.
+
+### Online Demo
+
+You can also try the deployed demo directly here:
+
+- https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io
+
+### Test Cases
+
+Use the following sample files from the repository to test the online demo:
+
+```bash
+# Referral Letter
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/referral_letter.pdf"
+
+# Medical Certificate
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/medical_certificate.pdf"
+
+# Receipt
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/receipt.pdf"
+```
 
 ### Features
 

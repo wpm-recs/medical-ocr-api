@@ -25,28 +25,28 @@
 ```mermaid
 graph TB
     subgraph Client["Client Layer"]
-        A[HTTP Client<br/>multipart/form-data]
+        A[HTTP Client\nmultipart/form-data]
     end
 
     subgraph Gateway["API Gateway (FastAPI)"]
         B[POST /ocr]
-        B1[File Validation<br/>MIME check]
-        B2[Error Handler<br/>400 / 422 / 500]
+        B1[File Validation\nMIME check]
+        B2[Error Handler\n400 / 422 / 500]
     end
 
     subgraph OCR_Pipeline["OCR Pipeline"]
-        C[Preprocessor<br/>PDF → PIL Images<br/>+ Embedded Text]
-        D[OCR Engine<br/>Tesseract (pytesseract)<br/>system binary]
-        E[Text Normalizer<br/>Whitespace cleanup]
+        C[Preprocessor\nPDF → PIL Images\nEmbedded Text]
+        D[OCR Engine\nTesseract - pytesseract\nsystem binary]
+        E[Text Normalizer\nWhitespace cleanup]
     end
 
     subgraph AI_Layer["AI Analysis Layer"]
-        F[LLM Extractor<br/>OpenAI-compatible API<br/>Classify + Extract<br/>Single API call]
-        G[Signature Detector<br/>OpenCV Multi-feature<br/>Hough Circles + Edge Projection]
+        F[LLM Extractor\nOpenAI-compatible API\nClassify and Extract\nSingle API call]
+        G[Signature Detector\nOpenCV Multi-feature\nHough Circles and Edge Projection]
     end
 
     subgraph Output["Output Layer"]
-        H[OcrResponse<br/>Pydantic Model]
+        H[OcrResponse\nPydantic Model]
     end
 
     A --> B --> B1
@@ -64,6 +64,30 @@ graph TB
 The project includes a browser-based drag-and-drop interface for easy testing:
 
 ![Web UI](../Screenshot/WebUI.png)
+
+### 1.3 Online Demo
+
+The deployed online demo is available at:
+
+- https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io
+
+### 1.4 Test Cases
+
+The following cURL requests use the repository sample files with relative paths:
+
+```bash
+# Referral Letter
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/referral_letter.pdf"
+
+# Medical Certificate
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/medical_certificate.pdf"
+
+# Receipt
+curl --fail-with-body -X POST "https://medical-ocr.greensky-c0f2aeba.eastasia.azurecontainerapps.io/ocr" \
+  -F "file=@Example/receipt.pdf"
+```
 
 ---
 
@@ -256,8 +280,6 @@ tests/test_api.py::TestAPI::test_empty_filename PASSED
 
 **Breakdown**: OCR (Tesseract/pytesseract) takes ~3–7s. LLM inference takes ~15–21s (network latency to remote API). Total end-to-end: ~21–26s per document.
 
-> **Test Environment**: Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz, Ubuntu 22.04, 32GB RAM, no discrete GPU. Tesseract runs in CPU-only mode.
-
 ---
 
 ## 5. Key Design Decisions
@@ -302,6 +324,14 @@ No new extractor classes, regex rules, or classifier training needed.
 # Install dependencies
 pip install -r requirements.txt
 sudo apt-get install -y poppler-utils
+
+# Install Tesseract OCR binary (required for pytesseract)
+# macOS (Homebrew):
+#   brew install tesseract
+# Ubuntu / Debian:
+#   sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+# Windows (Chocolatey):
+#   choco install tesseract
 
 # Configure LLM
 cp .env.example .env
