@@ -42,7 +42,9 @@ class LlmExtractor:
     """Uses an LLM (OpenAI-compatible API) to classify and extract document fields."""
 
     def __init__(self):
-        self._client: OpenAI | None = None
+        from typing import Optional
+
+        self._client: Optional[OpenAI] = None
 
     @property
     def client(self) -> OpenAI:

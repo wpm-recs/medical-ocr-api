@@ -325,7 +325,7 @@ medical-ocr-api/
 │   ├── models/response.py   # Pydantic models
 │   ├── pipeline/
 │   │   ├── preprocessor.py  # PDF → Image
-│   │   ├── ocr_engine.py    # PaddleOCR/Tesseract
+│   │   ├── ocr_engine.py    # PaddleOCR
 │   │   ├── normalizer.py    # Text cleanup
 │   │   └── ocr_types.py     # Dataclasses
 │   ├── extraction/

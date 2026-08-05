@@ -159,7 +159,7 @@ acceptable as long as they meet the requirements.
 
 ## 5.1 Suggested Tools & Libraries
 
-- OCR: Tesseract ( pytesseract ), PaddleOCR, Google Vision API
+- OCR: PaddleOCR, Google Vision API
 
 - PDF handling: pdf2image, PyMuPDF, pdfplumber
 

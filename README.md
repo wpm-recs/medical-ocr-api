@@ -221,7 +221,7 @@ medical-ocr-api/
 │   │   └── ocr.py                 # POST /ocr + GET /health endpoints
 │   ├── pipeline/
 │   │   ├── preprocessor.py        # PDF → image, embedded text extraction
-│   │   ├── ocr_engine.py          # PaddleOCR / Tesseract abstraction
+│   │   ├── ocr_engine.py          # PaddleOCR abstraction
 │   │   ├── ocr_types.py           # OcrBlock / OcrResult dataclasses
 │   │   └── normalizer.py          # Text cleaning & normalization
 │   ├── extraction/

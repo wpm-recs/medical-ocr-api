@@ -36,13 +36,11 @@ SUPPORTED_MIMES = {
 
 
 def _validate_file(file: Optional[UploadFile]) -> None:
-    if file is None or file.filename is None or file.filename == "":
+    if file is None or not file.filename:
         raise FileValidationError("file_missing")
 
     mime = file.content_type or ""
     if mime not in SUPPORTED_MIMES:
-        if mime == "":
-            raise FileValidationError("file_missing")
         raise FileValidationError("file_missing")
 
 
@@ -95,7 +93,7 @@ def process_document(file: UploadFile) -> OcrResponse:
 
 
 @router.post("/ocr")
-async def ocr_endpoint(file: UploadFile | None = File(None)):
+async def ocr_endpoint(file: Optional[UploadFile] = File(None)):
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
 
@@ -106,8 +104,6 @@ async def ocr_endpoint(file: UploadFile | None = File(None)):
     try:
         result = await loop.run_in_executor(executor, process_document, file)
         return result
-    except Exception:
-        raise
     finally:
         executor.shutdown(wait=False)
 
